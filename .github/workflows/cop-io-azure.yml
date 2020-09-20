@@ -1,0 +1,126 @@
+# This workflow will build and push a node.js application to an Azure Web App when a release is created.
+#
+# This workflow assumes you have already created the target Azure App Service web app.
+# For instructions see https://docs.microsoft.com/azure/app-service/app-service-plan-manage#create-an-app-service-plan
+#
+# To configure this workflow:
+#using System;
+using System.Collections.Generic;
+using System.Text.RegularExpressions;
+
+public class Person : IEquatable<Person>
+{
+   private string uniqueSsn;
+   private string lName;
+
+   public Person(string lastName, string ssn)
+   {
+      if (Regex.IsMatch(ssn, @"\d{9}"))
+        uniqueSsn = $"{ssn.Substring(0, 3)}-{ssn.Substring(3, 2)}-{ssn.Substring(5, 4)}";
+      else if (Regex.IsMatch(ssn, @"\d{3}-\d{2}-\d{4}"))
+         uniqueSsn = ssn;
+      else
+         throw new FormatException("The social security number has an invalid format.");
+
+      this.LastName = lastName;
+   }
+
+   public string SSN
+   {
+      get { return this.uniqueSsn; }
+   }
+
+   public string LastName
+   {
+      get { return this.lName; }
+      set {
+         if (String.IsNullOrEmpty(value))
+            throw new ArgumentException("The last name cannot be null or empty.");
+         else
+            this.lName = value;
+      }
+   }
+
+   public bool Equals(Person other)
+   {
+      if (other == null)
+         return false;
+
+      if (this.uniqueSsn == other.uniqueSsn)
+         return true;
+      else
+         return false;
+   }
+
+   public override bool Equals(Object obj)
+   {
+      if (obj == null)
+         return false;
+
+      Person personObj = obj as Person;
+      if (personObj == null)
+         return false;
+      else
+         return Equals(personObj);
+   }
+
+   public override int GetHashCode()
+   {
+      return this.SSN.GetHashCode();
+   }
+
+   public static bool operator == (Person person1, Person person2)
+   {
+      if (((object)person1) == null || ((object)person2) == null)
+         return Object.Equals(person1, person2);
+
+      return person1.Equals(person2);
+   }
+
+   public static bool operator != (Person person1, Person person2)
+   {
+      if (((object)person1) == null || ((object)person2) == null)
+         return ! Object.Equals(person1, person2);
+
+      return ! (person1.Equals(person2));
+   }
+}
+# 1. Set up a secret in your repository named AZURE_WEBAPP_PUBLISH_PROFILE with the value of your Azure publish profile.
+#    For instructions on obtaining the publish profile see: https://docs.microsoft.com/azure/app-service/deploy-github-actions#configure-the-github-secret
+#
+# 2. Change the values for the AZURE_WEBAPP_NAME, AZURE_WEBAPP_PACKAGE_PATH and NODE_VERSION environment variables  (below).
+#
+# For more information on GitHub Actions for Azure, refer to https://github.com/Azure/Actions
+# For more samples to get started with GitHub Action workflows to deploy to Azure, refer to https://github.com/Azure/actions-workflow-samples
+on:
+  release:
+    types: [created]
+
+env:
+  AZURE_WEBAPP_NAME: your-app-name    # set this to your application's name
+  AZURE_WEBAPP_PACKAGE_PATH: '.'      # set this to the path to your web app project, defaults to the repository root
+  NODE_VERSION: '10.x'                # set this to the node version to use
+
+jobs:
+  build-and-deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Use Node.js ${{ env.NODE_VERSION }}
+      uses: actions/setup-node@v1
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+    - name: npm install, build, and test
+      run: |
+        # Build and test the project, then
+        # deploy to Azure Web App.
+        npm install
+        npm run build --if-present
+        npm run test --if-present
+    - name: 'Deploy to Azure WebApp'
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: ${{ env.AZURE_WEBAPP_NAME }}
+        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+        package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
